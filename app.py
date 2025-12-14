@@ -1,5 +1,6 @@
 import streamlit as st
 from db import init_db, add_transaction, fetch_all
+from finance import calculate_emi
 
 st.set_page_config(page_title="Credit & Debt Tracker")
 st.title("Credit & Debt Tracker")
@@ -27,3 +28,16 @@ st.subheader("Summary")
 st.metric("Total Credit", f"₹{credit}")
 st.metric("Total Debt", f"₹{debt}")
 st.metric("Net Balance", f"₹{credit - debt}")
+
+st.subheader("All Transactions")
+
+for r in data:
+    _, t_type, amount, interest, months, note = r
+
+    if t_type == "debt":
+        emi = calculate_emi(amount, interest, months)
+        st.write(
+            f"💳 {note} | ₹{amount} | {interest}% | {months} months | EMI: ₹{emi}"
+        )
+    else:
+        st.write(f"💰 {note} | ₹{amount}")
