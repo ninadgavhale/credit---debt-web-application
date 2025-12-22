@@ -6,7 +6,6 @@ DB_NAME = "finance.db"
 def get_connection():
     return sqlite3.connect(DB_NAME, check_same_thread=False)
 
-# 🔁 REPLACE this function
 def init_db():
     conn = get_connection()
     cur = conn.cursor()
@@ -24,12 +23,12 @@ def init_db():
     conn.commit()
     conn.close()
 
-# 🔁 REPLACE this function
 def add_transaction(t_type, amount, interest, months, note):
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("""
-        INSERT INTO transactions (type, amount, interest, months, note, created_at)
+        INSERT INTO transactions
+        (type, amount, interest, months, note, created_at)
         VALUES (?, ?, ?, ?, ?, ?)
     """, (
         t_type,
@@ -42,7 +41,14 @@ def add_transaction(t_type, amount, interest, months, note):
     conn.commit()
     conn.close()
 
-# ➕ ADD this function (new)
+def fetch_all():
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM transactions ORDER BY created_at DESC")
+    rows = cur.fetchall()
+    conn.close()
+    return rows
+
 def fetch_filtered(t_type, start_date, end_date, keyword):
     conn = get_connection()
     cur = conn.cursor()
@@ -52,7 +58,12 @@ def fetch_filtered(t_type, start_date, end_date, keyword):
         AND created_at BETWEEN ? AND ?
         AND note LIKE ?
         ORDER BY created_at DESC
-    """, (t_type, start_date, end_date, f"%{keyword}%"))
+    """, (
+        t_type,
+        start_date,
+        end_date,
+        f"%{keyword}%"
+    ))
     rows = cur.fetchall()
     conn.close()
     return rows
