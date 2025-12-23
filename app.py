@@ -1,57 +1,69 @@
 import streamlit as st
 from datetime import date
-from db import init_db, add_transaction, fetch_all, fetch_filtered
+from db import init_db, add_transaction, fetch_filtered
 from finance import calculate_emi
-from strategy import snowball, avalanche
 
 st.set_page_config(page_title="Credit & Debt Tracker")
-st.title("Credit & Debt Tracker")
 
 init_db()
 
-# =========================
-# ADD TRANSACTION FORM
-# =========================
-with st.form("entry_form"):
-    t_type = st.selectbox("Type", ["credit", "debt"])
-    amount = st.number_input("Amount", min_value=0.0)
-    interest = st.number_input("Annual Interest (%)", min_value=0.0)
-    months = st.number_input("Duration (months)", min_value=1)
-    note = st.text_input("Remark")
-    submitted = st.form_submit_button("Add Transaction")
+# -----------------------------
+# NAVIGATION STATE
+# -----------------------------
+if "page" not in st.session_state:
+    st.session_state.page = "home"
 
-    if submitted:
-        add_transaction(t_type, amount, interest, months, note)
-        st.success("Transaction added")
+def go_home():
+    st.session_state.page = "home"
 
-# =========================
-# SUMMARY
-# =========================
-data = fetch_all()
-total_credit = sum(r[2] for r in data if r[1] == "credit")
-total_debt = sum(r[2] for r in data if r[1] == "debt")
+def go_credit():
+    st.session_state.page = "credit"
 
-st.subheader("Summary")
-st.metric("Total Credit", f"₹{total_credit}")
-st.metric("Total Debt", f"₹{total_debt}")
-st.metric("Net Balance", f"₹{total_credit - total_debt}")
+def go_debt():
+    st.session_state.page = "debt"
 
-# =========================
-# TABS (CREDIT / DEBT)
-# =========================
-tab_credit, tab_debt = st.tabs(["💰 Credit", "💳 Debt"])
+# =============================
+# HOME PAGE
+# =============================
+if st.session_state.page == "home":
+    st.title("Credit & Debt Tracker")
 
-# ---------- CREDIT TAB ----------
-with tab_credit:
+    st.subheader("Choose an option")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.button("💰 Credit", use_container_width=True, on_click=go_credit)
+
+    with col2:
+        st.button("💳 Debt", use_container_width=True, on_click=go_debt)
+
+# =============================
+# CREDIT PAGE
+# =============================
+elif st.session_state.page == "credit":
+    st.title("💰 Credit")
+
+    st.button("⬅ Back", on_click=go_home)
+
+    with st.form("credit_form"):
+        amount = st.number_input("Amount", min_value=0.0)
+        note = st.text_input("Remark")
+        submitted = st.form_submit_button("Add Credit")
+
+        if submitted:
+            add_transaction("credit", amount, 0, 1, note)
+            st.success("Credit added")
+
     st.subheader("Credit History")
 
     c1, c2 = st.columns(2)
     with c1:
-        start = st.date_input("From", date(2024, 1, 1), key="c_from")
+        start = st.date_input("From", date(2024, 1, 1))
     with c2:
-        end = st.date_input("To", date.today(), key="c_to")
+        end = st.date_input("To", date.today())
 
-    keyword = st.text_input("Remark keyword", key="c_kw")
+    keyword = st.text_input("Search remark")
 
     credits = fetch_filtered(
         "credit",
@@ -63,17 +75,34 @@ with tab_credit:
     for c in credits:
         st.write(f"₹{c[2]} | {c[5]} | {c[6]}")
 
-# ---------- DEBT TAB ----------
-with tab_debt:
+# =============================
+# DEBT PAGE
+# =============================
+elif st.session_state.page == "debt":
+    st.title("💳 Debt")
+
+    st.button("⬅ Back", on_click=go_home)
+
+    with st.form("debt_form"):
+        amount = st.number_input("Amount", min_value=0.0)
+        interest = st.number_input("Annual Interest (%)", min_value=0.0)
+        months = st.number_input("Duration (months)", min_value=1)
+        note = st.text_input("Remark")
+        submitted = st.form_submit_button("Add Debt")
+
+        if submitted:
+            add_transaction("debt", amount, interest, months, note)
+            st.success("Debt added")
+
     st.subheader("Debt History")
 
     d1, d2 = st.columns(2)
     with d1:
-        start = st.date_input("From", date(2024, 1, 1), key="d_from")
+        start = st.date_input("From", date(2024, 1, 1))
     with d2:
-        end = st.date_input("To", date.today(), key="d_to")
+        end = st.date_input("To", date.today())
 
-    keyword = st.text_input("Remark keyword", key="d_kw")
+    keyword = st.text_input("Search remark")
 
     debts = fetch_filtered(
         "debt",
@@ -82,30 +111,8 @@ with tab_debt:
         keyword
     )
 
-    debt_objects = []
-
     for d in debts:
         emi = calculate_emi(d[2], d[3], d[4])
         st.write(
             f"₹{d[2]} | {d[3]}% | {d[4]} months | EMI ₹{emi} | {d[5]} | {d[6]}"
         )
-
-        debt_objects.append({
-            "amount": d[2],
-            "interest": d[3],
-            "months": d[4],
-            "note": d[5]
-        })
-
-    st.subheader("Debt Payoff Strategy")
-
-    strategy_choice = st.selectbox(
-        "Choose strategy",
-        ["Avalanche (Lowest Interest Cost)", "Snowball (Quick Wins)"]
-    )
-
-    ordered = avalanche(debt_objects) if "Avalanche" in strategy_choice else snowball(debt_objects)
-
-    for i, d in enumerate(ordered, 1):
-        st.write(f"{i}. {d['note']} | ₹{d['amount']} | {d['interest']}%")
-
