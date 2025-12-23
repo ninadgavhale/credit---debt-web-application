@@ -67,3 +67,28 @@ def fetch_filtered(t_type, start_date, end_date, keyword):
     rows = cur.fetchall()
     conn.close()
     return rows
+
+def fetch_history(t_type, start_date, end_date, keyword):
+    conn = get_connection()
+    cur = conn.cursor()
+
+    if t_type == "all":
+        cur.execute("""
+            SELECT * FROM transactions
+            WHERE created_at BETWEEN ? AND ?
+            AND note LIKE ?
+            ORDER BY created_at DESC
+        """, (start_date, end_date, f"%{keyword}%"))
+    else:
+        cur.execute("""
+            SELECT * FROM transactions
+            WHERE type = ?
+            AND created_at BETWEEN ? AND ?
+            AND note LIKE ?
+            ORDER BY created_at DESC
+        """, (t_type, start_date, end_date, f"%{keyword}%"))
+
+    rows = cur.fetchall()
+    conn.close()
+    return rows
+
